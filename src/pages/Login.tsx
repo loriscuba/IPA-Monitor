@@ -19,6 +19,7 @@ export function Login() {
   return (
     <main className="login">
       <form onSubmit={entra} className="pannello">
+        <img src="icone/icona-192.png" alt="IPA Media" width={96} height={96} className="login-logo" />
         <h1>IPA Monitor</h1>
         <p className="muto">Accesso riservato.</p>
         <label>

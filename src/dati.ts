@@ -36,9 +36,13 @@ export function useDati<T>(carica: () => Promise<T>, dipendenze: unknown[] = [])
       );
     giro();
     const t = setInterval(giro, AGGIORNA_OGNI_MS);
+    // Sul telefono l'app resta sospesa in background: quando torna in primo piano ricarica subito.
+    const visibile = () => document.visibilityState === "visible" && giro();
+    document.addEventListener("visibilitychange", visibile);
     return () => {
       vivo = false;
       clearInterval(t);
+      document.removeEventListener("visibilitychange", visibile);
     };
   }, [f]);
 

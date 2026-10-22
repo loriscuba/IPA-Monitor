@@ -22,6 +22,7 @@ export function App() {
     <HashRouter>
       <header className="barra">
         <Link to="/" className="marchio">
+          <img src="icone/favicon.png" alt="" width={28} height={28} />
           IPA Monitor
         </Link>
         <span className="muto piccolo nascondi-mobile">{sessione.user.email}</span>
