@@ -1,1 +1,0 @@
-{"root":["./src/App.tsx","./src/dati.ts","./src/main.tsx","./src/riassunto.ts","./src/supabase.ts","./src/components/Latenza.tsx","./src/components/Stato.tsx","./src/pages/Dashboard.tsx","./src/pages/Login.tsx","./src/pages/Progetto.tsx","./vite.config.ts"],"version":"5.9.3"}
