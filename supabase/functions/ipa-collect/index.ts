@@ -3,7 +3,7 @@
 // e scrive una riga per controllo in ipamonitor.controlli.
 //
 // Segreti (Supabase → Edge Functions → Secrets), tutti facoltativi: senza, quel controllo viene saltato.
-//   SUPABASE_PAT          token personale per la Management API (api.supabase.com)
+//   MANAGEMENT_API_TOKEN  (o SUPABASE-PAT) token personale per la Management API (api.supabase.com)
 //   GITHUB_TOKEN          token GitHub in sola lettura (Actions + Pull requests)
 //   GYMIN_MONITOR_DB_URL  stringa di connessione del ruolo monitor_ro sul DB di GymIN
 import postgres from "npm:postgres@3.4.5";
@@ -18,7 +18,8 @@ type Controllo = {
 };
 
 const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { prepare: false, max: 2 });
-const PAT = Deno.env.get("SUPABASE_PAT");
+// I segreti non possono iniziare con SUPABASE_: si accetta anche il nome SUPABASE-PAT
+const PAT = Deno.env.get("MANAGEMENT_API_TOKEN") ?? Deno.env.get("SUPABASE-PAT");
 const GH = Deno.env.get("GITHUB_TOKEN");
 const GYMIN_DB = Deno.env.get("GYMIN_MONITOR_DB_URL");
 
@@ -75,7 +76,7 @@ async function controllaSupabase(app_id: string, ref: string): Promise<Controllo
       iso_timestamp_start: inizio.toISOString(),
       iso_timestamp_end: fine.toISOString(),
     });
-    const r = await api(`${base}/analytics/endpoints/logs.all?${q}`, h);
+    const r = await api(`${base}/analytics/endpoints/logs?${q}`, h);
     const errori = Number(r?.result?.[0]?.errori ?? 0);
     out.push({ app_id, tipo: "supabase", oggetto: "errori_api_10min", ok: errori === 0, dati: { errori } });
   } catch (e) {

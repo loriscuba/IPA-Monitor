@@ -16,7 +16,7 @@ Demo IPA → Edge Functions → Secrets:
 
 | Nome | Dove si prende | Attiva |
 |---|---|---|
-| `SUPABASE_PAT` | supabase.com → Account → Access Tokens | salute progetti, errori API, stato Edge Function |
+| `MANAGEMENT_API_TOKEN` (o `SUPABASE-PAT`) | supabase.com → Account → Access Tokens | salute progetti, errori API, stato Edge Function |
 | `GITHUB_TOKEN` | GitHub → token fine-grained, sola lettura su GymIN e BeachIn (Actions, Pull requests) | GitHub se i repo sono privati |
 | `GYMIN_MONITOR_DB_URL` | vedi punto 3 | metriche GymIN |
 
