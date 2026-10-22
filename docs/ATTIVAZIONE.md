@@ -33,7 +33,14 @@ Non ho trovato l'indirizzo pubblico di GymIN. Per aggiungerlo:
 insert into ipamonitor.siti (app_id, nome, url) values ('gymin', 'Sito', 'https://...');
 ```
 
+## 5. Utenti online
+1. Migrazione GymIN `20261022150000_monitor_utenti.sql` (PR su GymIN): vista `monitor.utenti` + segnale dall'app staff.
+2. BeachIn: migrazione `0010_monitor_utenti.sql`, già applicata sul Demo.
+3. SQL Editor di Demo IPA: il job che aggiorna `ipamonitor.connessioni` ogni minuto, cioè il blocco
+   `cron.schedule('ipamonitor-utenti', ...)` di `supabase/migrations/0002_connessioni.sql`.
+
 ## Verifica
 ```sql
 select * from ipamonitor.ultimo_stato order by app_id, tipo, oggetto;
+select app_id, nome, ruolo, ultimo_login, ultima_attivita from ipamonitor.connessioni order by ultima_attivita desc;
 ```
