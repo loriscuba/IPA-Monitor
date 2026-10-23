@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
+import { demo, demoAttiva } from "./demo";
 
 export type Tipo = "sito" | "supabase" | "funzioni" | "github" | "metriche";
 
@@ -13,7 +14,16 @@ export type Controllo = {
   dati: any;
 };
 
-export type App = { id: string; nome: string; repo: string | null; supabase_ref: string | null };
+export type App = {
+  id: string;
+  nome: string;
+  repo: string | null;
+  supabase_ref: string | null;
+  /** Solo in modalità demo: prodotto comprato dal cliente, logo e località. */
+  prodotto?: string;
+  logo?: string;
+  citta?: string;
+};
 
 export type Livello = "ok" | "attenzione" | "critico" | "assente";
 
@@ -56,12 +66,12 @@ async function esegui<T>(q: PromiseLike<{ data: T | null; error: { message: stri
 }
 
 export const caricaApp = () =>
-  esegui<App[]>(supabase.from("app").select("id, nome, repo, supabase_ref").eq("attiva", true).order("nome"));
+  demoAttiva() ? demo.app() : esegui<App[]>(supabase.from("app").select("id, nome, repo, supabase_ref").eq("attiva", true).order("nome"));
 
 export type LinkUtile = { gruppo: string; nome: string; url: string };
 
 export const caricaLink = (appId: string) =>
-  esegui<LinkUtile[]>(supabase.from("link").select("gruppo, nome, url").eq("app_id", appId).order("ordine"));
+  demoAttiva() ? demo.link() : esegui<LinkUtile[]>(supabase.from("link").select("gruppo, nome, url").eq("app_id", appId).order("ordine"));
 
 /** Link ricavati da repo e progetto Supabase, più quelli registrati in ipamonitor.link. */
 export function linkUtili(app: App, siti: Controllo[], extra: LinkUtile[]): LinkUtile[] {
@@ -90,6 +100,7 @@ export function linkUtili(app: App, siti: Controllo[], extra: LinkUtile[]): Link
 }
 
 export const caricaUltimo = (appId?: string) => {
+  if (demoAttiva()) return demo.ultimo(appId);
   let q = supabase.from("ultimo_stato").select("creato_il, app_id, tipo, oggetto, ok, latenza_ms, dati");
   if (appId) q = q.eq("app_id", appId);
   return esegui<Controllo[]>(q);
@@ -97,7 +108,7 @@ export const caricaUltimo = (appId?: string) => {
 
 /** Storico delle ultime 24 ore dei controlli con latenza (siti). */
 export const caricaStorico = (appId: string) =>
-  esegui<Controllo[]>(
+  demoAttiva() ? demo.storico(appId) : esegui<Controllo[]>(
     supabase
       .from("controlli")
       .select("creato_il, app_id, tipo, oggetto, ok, latenza_ms, dati")
@@ -121,7 +132,7 @@ export const MINUTI_ONLINE = 3;
 export const online = (c: Connessione) => !!c.ultima_attivita && minutiFa(c.ultima_attivita) <= MINUTI_ONLINE;
 
 export const caricaConnessioni = (appId: string) =>
-  esegui<Connessione[]>(
+  demoAttiva() ? demo.connessioni(appId) : esegui<Connessione[]>(
     supabase
       .from("connessioni")
       .select("chiave, nome, ruolo, ultimo_login, ultima_attivita, letto_il")
