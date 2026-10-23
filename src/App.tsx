@@ -6,9 +6,15 @@ import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { Progetto } from "./pages/Progetto";
 import { Notifiche } from "./components/Notifiche";
+import { demoAttiva, impostaDemo } from "./demo";
 
 export function App() {
   const [sessione, setSessione] = useState<Session | null | undefined>(undefined);
+  const [demo, setDemo] = useState(demoAttiva);
+  const cambiaDemo = () => {
+    impostaDemo(!demo);
+    setDemo(!demo);
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSessione(data.session));
@@ -27,12 +33,17 @@ export function App() {
           IPA Monitor
         </Link>
         <span className="muto piccolo nascondi-mobile">{sessione.user.email}</span>
+        <button className={demo ? "demo-attiva" : "secondario"} onClick={cambiaDemo} aria-pressed={demo}>
+          {demo ? "Esci dalla demo" : "Demo"}
+        </button>
         <Notifiche />
         <button className="secondario" onClick={() => supabase.auth.signOut()}>
           Esci
         </button>
       </header>
-      <main className="contenuto">
+      {demo && <p className="banner-demo">Modalità demo: clienti e dati d'esempio, nessun dato reale letto o modificato.</p>}
+      {/* key: al cambio di modalità le pagine ripartono e ricaricano dalla fonte giusta */}
+      <main className="contenuto" key={demo ? "demo" : "reale"}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/progetto/:id" element={<Progetto />} />

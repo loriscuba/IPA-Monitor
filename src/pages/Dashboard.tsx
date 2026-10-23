@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Stato } from "../components/Stato";
 import { type App, type Controllo, caricaApp, caricaUltimo, descriviProblema, livelloControllo, peggiore, quando, useDati } from "../dati";
 import { riassumi } from "../riassunto";
+import { PRODOTTI, demoAttiva } from "../demo";
 
 export function Dashboard() {
   const { dati, errore } = useDati(() => Promise.all([caricaApp(), caricaUltimo()]));
@@ -14,12 +15,34 @@ export function Dashboard() {
   return (
     <>
       <h1>Dashboard</h1>
-      <div className="griglia">
-        {app.map((a) => (
-          <Card key={a.id} app={a} controlli={controlli.filter((c) => c.app_id === a.id)} />
-        ))}
-      </div>
+      {demoAttiva() ? (
+        PRODOTTI.map((p) => {
+          const clienti = app.filter((a) => a.prodotto === p);
+          return (
+            <section key={p} className="prodotto">
+              <div className="prodotto-testa">
+                <h2>{p}</h2>
+                <span className="muto piccolo">{clienti.length === 1 ? "1 cliente" : `${clienti.length} clienti`}</span>
+                <Stato livello={peggiore(clienti.map((a) => riassumi(controlli.filter((c) => c.app_id === a.id)).livello))} />
+              </div>
+              <Griglia app={clienti} controlli={controlli} />
+            </section>
+          );
+        })
+      ) : (
+        <Griglia app={app} controlli={controlli} />
+      )}
     </>
+  );
+}
+
+function Griglia({ app, controlli }: { app: App[]; controlli: Controllo[] }) {
+  return (
+    <div className="griglia">
+      {app.map((a) => (
+        <Card key={a.id} app={a} controlli={controlli.filter((c) => c.app_id === a.id)} />
+      ))}
+    </div>
   );
 }
 
@@ -34,7 +57,13 @@ function Card({ app, controlli }: { app: App; controlli: Controllo[] }) {
   return (
     <Link to={`/progetto/${app.id}`} className="card">
       <div className="card-testa">
-        <h2>{app.nome}</h2>
+        <div className="card-nome">
+          {app.logo && <img className="logo-cliente" src={app.logo} alt="" />}
+          <div>
+            <h2>{app.nome}</h2>
+            {app.citta && <span className="muto piccolo">{app.citta}</span>}
+          </div>
+        </div>
         <Stato livello={r.livello} />
       </div>
 

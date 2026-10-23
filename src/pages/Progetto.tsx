@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { Latenza } from "../components/Latenza";
 import { Stato } from "../components/Stato";
 import {
+  type App,
   type Connessione,
   type Controllo,
   type Livello,
@@ -39,9 +40,11 @@ export function Progetto() {
   return (
     <>
       <p className="briciole">
-        <Link to="/">Dashboard</Link> / {app.nome}
+        <Link to="/">Dashboard</Link> / {app.prodotto && `${app.prodotto} / `}
+        {app.nome}
       </p>
       <div className="titolo-progetto">
+        {app.logo && <img className="logo-cliente" src={app.logo} alt="" />}
         <h1>Monitoring {app.nome}</h1>
         <Stato livello={r.livello} />
       </div>
@@ -133,12 +136,12 @@ export function Progetto() {
           <h3>Dati dell'app</h3>
           {r.metriche ? (
             r.metriche.ok || !r.metriche.dati?.errore ? (
-              <Metriche app={app.id} m={r.metriche} />
+              <Metriche gymin={eGymin(app)} m={r.metriche} />
             ) : (
               <p className="errore">{descriviProblema(r.metriche)}</p>
             )
           ) : (
-            <Manca cosa={app.id === "gymin" ? "il segreto GYMIN_MONITOR_DB_URL (vedi docs/ATTIVAZIONE.md, punto 3)" : "la vista di riepilogo"} />
+            <Manca cosa={eGymin(app) ? "il segreto GYMIN_MONITOR_DB_URL (vedi docs/ATTIVAZIONE.md, punto 3)" : "la vista di riepilogo"} />
           )}
         </section>
       </div>
@@ -305,12 +308,15 @@ const VOCI_GYMIN: Voce[] = [
   { chiave: "ultima_modifica", nome: "Ultima modifica ai dati", data: true },
 ];
 
+/** In demo i clienti GymIN hanno le stesse metriche dell'app GymIN. */
+const eGymin = (a: App) => a.id === "gymin" || a.prodotto === "GymIN";
+
 const ISO = /^\d{4}-\d{2}-\d{2}/;
 
-function Metriche({ app, m }: { app: string; m: Controllo }) {
+function Metriche({ gymin, m }: { gymin: boolean; m: Controllo }) {
   const d = (m.dati ?? {}) as Record<string, unknown>;
   const voci: Voce[] =
-    app === "gymin"
+    gymin
       ? VOCI_GYMIN
       : Object.keys(d)
           .filter((k) => k !== "letto_il")

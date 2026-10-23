@@ -180,3 +180,14 @@ tr:first-child td { border-top: 0; }
   .metriche { grid-template-columns: 1fr 1fr; }
   .latenza svg { height: 64px; }
 }
+
+/* Modalità demo: prodotti con sotto i clienti */
+button.demo-attiva { background: var(--attenzione); color: #0b0b0b; border: 0; padding: 0.35rem 0.8rem; }
+.banner-demo { margin: 0; padding: 0.4rem 1rem; text-align: center; font-size: 0.85rem; background: var(--attenzione-fondo); color: var(--attenzione-testo); border-bottom: 1px solid var(--bordo); }
+.prodotto { margin-bottom: 1.75rem; }
+.prodotto-testa { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+.card-nome { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.card-nome span { display: block; }
+.logo-cliente { width: 44px; height: 44px; flex: none; object-fit: contain; background: #fff; border: 1px solid var(--bordo); border-radius: 10px; padding: 3px; }
+.titolo-progetto .logo-cliente { width: 52px; height: 52px; }
+.titolo-progetto .logo-cliente + h1 { margin-right: auto; }
