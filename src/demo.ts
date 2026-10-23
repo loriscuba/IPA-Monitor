@@ -63,16 +63,16 @@ const PROFILI: Record<string, Profilo> = {
     metriche: { comande_oggi: 86, comande_in_attesa: 2, ultima_comanda: min(4), richieste_ristorante_aperte: 3, richieste_eventi_aperte: 1, push_iscrizioni: 412, ultimo_push: min(95) },
     utenti: [["Marco (titolare)", "Gestionale", 1, 3], ["Giulia", "Bar", 2, 6], ["Andrea", "Spiaggia", 18, 7], ["Sara", "Cucina", 240, 26]],
   },
-  // Qualche avviso: push in errore e menu lento.
+  // Tutto in ordine anche qui.
   "demo-bagno-oasi": {
     siti: [
       { nome: "Gestionale", url: "https://oasi.beachin.app", ms: 241 },
-      { nome: "App clienti", url: "https://oasi.beachin.app/clienti", ms: 1840 },
+      { nome: "App clienti", url: "https://oasi.beachin.app/clienti", ms: 263 },
     ],
     deploy: { esito: "success", ore: 30, commit: "77be014" },
-    errori5xx: 4,
-    funzioni: [{ nome: "invia-push", status: 500 }, { nome: "assistente", status: 200 }],
-    metriche: { comande_oggi: 41, comande_in_attesa: 9, ultima_comanda: min(12), richieste_ristorante_aperte: 6, richieste_eventi_aperte: 0, push_iscrizioni: 158, ultimo_push: min(60 * 26) },
+    errori5xx: 0,
+    funzioni: [{ nome: "invia-push", status: 200 }, { nome: "assistente", status: 200 }],
+    metriche: { comande_oggi: 41, comande_in_attesa: 1, ultima_comanda: min(12), richieste_ristorante_aperte: 2, richieste_eventi_aperte: 0, push_iscrizioni: 158, ultimo_push: min(180) },
     utenti: [["Roberta (titolare)", "Gestionale", 2, 2], ["Luca", "Bar", 35, 9]],
   },
   // Ambiente di prova con problemi seri: gestionale giù e deploy fallito.
