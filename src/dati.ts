@@ -58,6 +58,37 @@ async function esegui<T>(q: PromiseLike<{ data: T | null; error: { message: stri
 export const caricaApp = () =>
   esegui<App[]>(supabase.from("app").select("id, nome, repo, supabase_ref").eq("attiva", true).order("nome"));
 
+export type LinkUtile = { gruppo: string; nome: string; url: string };
+
+export const caricaLink = (appId: string) =>
+  esegui<LinkUtile[]>(supabase.from("link").select("gruppo, nome, url").eq("app_id", appId).order("ordine"));
+
+/** Link ricavati da repo e progetto Supabase, più quelli registrati in ipamonitor.link. */
+export function linkUtili(app: App, siti: Controllo[], extra: LinkUtile[]): LinkUtile[] {
+  const l: LinkUtile[] = siti.map((s) => ({ gruppo: "Siti online", nome: s.dati?.nome ?? s.oggetto, url: s.oggetto }));
+  if (app.repo) {
+    const g = `https://github.com/${app.repo}`;
+    l.push(
+      { gruppo: "GitHub", nome: "Repository", url: g },
+      { gruppo: "GitHub", nome: "Pull request", url: `${g}/pulls` },
+      { gruppo: "GitHub", nome: "Actions", url: `${g}/actions` },
+      { gruppo: "GitHub", nome: "Issue", url: `${g}/issues` },
+    );
+  }
+  if (app.supabase_ref) {
+    const s = `https://supabase.com/dashboard/project/${app.supabase_ref}`;
+    l.push(
+      { gruppo: "Supabase", nome: "Panoramica", url: s },
+      { gruppo: "Supabase", nome: "Tabelle", url: `${s}/editor` },
+      { gruppo: "Supabase", nome: "SQL", url: `${s}/sql/new` },
+      { gruppo: "Supabase", nome: "Utenti", url: `${s}/auth/users` },
+      { gruppo: "Supabase", nome: "Edge Function", url: `${s}/functions` },
+      { gruppo: "Supabase", nome: "Log", url: `${s}/logs/explorer` },
+    );
+  }
+  return [...l, ...extra];
+}
+
 export const caricaUltimo = (appId?: string) => {
   let q = supabase.from("ultimo_stato").select("creato_il, app_id, tipo, oggetto, ok, latenza_ms, dati");
   if (appId) q = q.eq("app_id", appId);
