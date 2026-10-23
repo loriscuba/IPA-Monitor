@@ -33,7 +33,7 @@ export function App() {
           IPA Monitor
         </Link>
         <span className="muto piccolo nascondi-mobile">{sessione.user.email}</span>
-        <button className={demo ? "demo-attiva" : "secondario"} onClick={cambiaDemo} aria-pressed={demo}>
+        <button className="secondario" onClick={cambiaDemo} aria-pressed={demo}>
           {demo ? "Esci" : "Demo"}
         </button>
         <Notifiche />
@@ -44,7 +44,6 @@ export function App() {
           </button>
         )}
       </header>
-      {demo && <p className="banner-demo">Modalità demo: clienti e dati d'esempio, nessun dato reale letto o modificato.</p>}
       {/* key: al cambio di modalità le pagine ripartono e ricaricano dalla fonte giusta */}
       <main className="contenuto" key={demo ? "demo" : "reale"}>
         <Routes>
