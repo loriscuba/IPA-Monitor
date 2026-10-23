@@ -29,7 +29,7 @@ export const PRODOTTI = ["BeachIn", "GymIN"] as const;
 
 const CLIENTI: App[] = [
   { id: "demo-lido-dei-pini", nome: "Lido dei Pini", prodotto: "BeachIn", citta: "Savona", logo: "demo/lido-dei-pini.png", repo: null, supabase_ref: null },
-  { id: "demo-bagno-oasi", nome: "Bagno l'Oasi", prodotto: "BeachIn", citta: "Varazze", logo: "demo/bagno-oasi.jpg", repo: null, supabase_ref: null },
+  { id: "demo-bagno-oasi", nome: "Bagno l'Oasi", prodotto: "BeachIn", citta: "Chiavari", logo: "demo/bagno-oasi.jpg", repo: null, supabase_ref: null },
   { id: "demo-bagni-test", nome: "Bagni Test", prodotto: "BeachIn", citta: "Ambiente di prova", logo: "demo/bagni-test.svg", repo: null, supabase_ref: null },
   { id: "demo-kinesia", nome: "Kinesia", prodotto: "GymIN", citta: "Palestra", logo: "demo/kinesia.png", repo: null, supabase_ref: null },
 ];

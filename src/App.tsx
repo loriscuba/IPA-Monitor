@@ -34,12 +34,15 @@ export function App() {
         </Link>
         <span className="muto piccolo nascondi-mobile">{sessione.user.email}</span>
         <button className={demo ? "demo-attiva" : "secondario"} onClick={cambiaDemo} aria-pressed={demo}>
-          {demo ? "Esci dalla demo" : "Demo"}
+          {demo ? "Esci" : "Demo"}
         </button>
         <Notifiche />
-        <button className="secondario" onClick={() => supabase.auth.signOut()}>
-          Esci
-        </button>
+        {/* In demo "Esci" riporta ai dati reali: il logout torna visibile fuori dalla demo. */}
+        {!demo && (
+          <button className="secondario" onClick={() => supabase.auth.signOut()}>
+            Esci
+          </button>
+        )}
       </header>
       {demo && <p className="banner-demo">Modalità demo: clienti e dati d'esempio, nessun dato reale letto o modificato.</p>}
       {/* key: al cambio di modalità le pagine ripartono e ricaricano dalla fonte giusta */}
