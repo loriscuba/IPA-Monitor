@@ -6,6 +6,7 @@
 //   MANAGEMENT_API_TOKEN  (o SUPABASE-PAT) token personale per la Management API (api.supabase.com)
 //   GITHUB_TOKEN          token GitHub in sola lettura (Actions + Pull requests)
 //   GYMIN_MONITOR_DB_URL  stringa di connessione del ruolo monitor_ro sul DB di GymIN
+// Con body {"solo":"utenti"} (cron ogni minuto) aggiorna solo ipamonitor.connessioni (utenti online).
 import postgres from "npm:postgres@3.4.5";
 
 type Controllo = {
@@ -151,12 +152,46 @@ async function metricheGymin(): Promise<Controllo[]> {
   }
 }
 
+type Connessione = { chiave: string; nome: string | null; ruolo: string | null; ultimo_login: string | null; ultima_attivita: string | null };
+
+// Utenti online (ogni minuto): copia le viste utenti delle app in ipamonitor.connessioni.
+async function raccogliUtenti() {
+  const letture: [string, () => Promise<Connessione[]>][] = [
+    ["beachin", async () => await sql<Connessione[]>`select * from beachin.monitor_utenti`],
+  ];
+  if (GYMIN_DB) {
+    letture.push(["gymin", async () => {
+      const db = postgres(GYMIN_DB, { prepare: false, max: 1, connect_timeout: 10 });
+      try { return await db<Connessione[]>`select * from monitor.utenti`; } finally { await db.end(); }
+    }]);
+  }
+  const esiti: Record<string, number | string> = {};
+  await Promise.all(letture.map(async ([app_id, leggi]) => {
+    try {
+      const righe = (await leggi()).map((r) => ({ app_id, ...r, letto_il: new Date() }));
+      await sql.begin(async (tx) => {
+        await tx`delete from ipamonitor.connessioni where app_id = ${app_id}`;
+        if (righe.length) {
+          await tx`insert into ipamonitor.connessioni ${tx(righe, "app_id", "chiave", "nome", "ruolo", "ultimo_login", "ultima_attivita", "letto_il")}`;
+        }
+      });
+      esiti[app_id] = righe.length;
+    } catch (e) {
+      esiti[app_id] = errore(e).errore;
+    }
+  }));
+  return esiti;
+}
+
 Deno.serve(async (req) => {
   const [{ segreto } = { segreto: null }] = await sql`
     select decrypted_secret as segreto from vault.decrypted_secrets where name = 'ipamonitor_cron_secret'`;
   if (!segreto || req.headers.get("x-cron-secret") !== segreto) {
     return new Response("non autorizzato", { status: 401 });
   }
+
+  const corpo = await req.json().catch(() => ({}));
+  if (corpo?.solo === "utenti") return Response.json({ utenti: await raccogliUtenti() });
 
   const app = await sql`select id, repo, supabase_ref from ipamonitor.app where attiva`;
   const siti = await sql`select s.app_id, s.nome, s.url from ipamonitor.siti s join ipamonitor.app a on a.id = s.app_id where a.attiva`;

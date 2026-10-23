@@ -2,14 +2,17 @@ import { Link, useParams } from "react-router-dom";
 import { Latenza } from "../components/Latenza";
 import { Stato } from "../components/Stato";
 import {
+  type Connessione,
   type Controllo,
   type Livello,
   caricaApp,
+  caricaConnessioni,
   caricaStorico,
   caricaUltimo,
   descriviProblema,
   livelloControllo,
   nomeWorkflow,
+  online,
   peggiore,
   quando,
   useDati,
@@ -18,11 +21,11 @@ import { riassumi } from "../riassunto";
 
 export function Progetto() {
   const { id = "" } = useParams();
-  const { dati, errore } = useDati(() => Promise.all([caricaApp(), caricaUltimo(id), caricaStorico(id)]), [id]);
+  const { dati, errore } = useDati(() => Promise.all([caricaApp(), caricaUltimo(id), caricaStorico(id), caricaConnessioni(id)]), [id]);
 
   if (errore) return <p className="errore">Impossibile leggere i dati: {errore}</p>;
   if (!dati) return <p className="muto">Caricamento…</p>;
-  const [elenco, controlli, storico] = dati;
+  const [elenco, controlli, storico, connessioni] = dati;
   const app = elenco.find((a) => a.id === id);
   if (!app) return <p>Progetto non trovato. <Link to="/">Torna alla Dashboard</Link></p>;
   const r = riassumi(controlli);
@@ -133,7 +136,50 @@ export function Progetto() {
           )}
         </section>
       </div>
+
+      <Utenti connessioni={connessioni} />
     </>
+  );
+}
+
+function Utenti({ connessioni }: { connessioni: Connessione[] }) {
+  const attivi = connessioni.filter(online);
+  const letto = connessioni.reduce<string | null>((a, c) => (!a || c.letto_il > a ? c.letto_il : a), null);
+  return (
+    <section className="pannello">
+      <div className="pannello-testa">
+        <h2>Utenti</h2>
+        <Stato livello={attivi.length ? "ok" : "assente"} testo={`${attivi.length} online`} />
+      </div>
+      {connessioni.length ? (
+        <table>
+          <thead>
+            <tr>
+              <th>Utente</th>
+              <th>Dove</th>
+              <th>Ultima connessione</th>
+              <th className="destra">Ultima attività</th>
+            </tr>
+          </thead>
+          <tbody>
+            {connessioni.map((c) => (
+              <tr key={c.chiave}>
+                <td>
+                  {online(c) ? "🟢 " : ""}
+                  {c.nome ?? "—"}
+                </td>
+                <td className="muto">{c.ruolo ?? "—"}</td>
+                <td>{quando(c.ultimo_login)}</td>
+                <td className="muto destra">{online(c) ? "online" : quando(c.ultima_attivita)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="muto">Nessun utente registrato finora.</p>
+      )}
+      {letto && <p className="piccolo muto">Letto {quando(letto)} · online = attivo negli ultimi 3 minuti</p>}
+    </section>
   );
 }
 

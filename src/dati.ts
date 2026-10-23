@@ -76,6 +76,28 @@ export const caricaStorico = (appId: string) =>
       .order("creato_il"),
   );
 
+export type Connessione = {
+  chiave: string;
+  nome: string | null;
+  ruolo: string | null;
+  ultimo_login: string | null;
+  ultima_attivita: string | null;
+  letto_il: string;
+};
+
+/** Online = un segnale dall'app negli ultimi 3 minuti (le app ne mandano uno al minuto a pagina visibile). */
+export const MINUTI_ONLINE = 3;
+export const online = (c: Connessione) => !!c.ultima_attivita && minutiFa(c.ultima_attivita) <= MINUTI_ONLINE;
+
+export const caricaConnessioni = (appId: string) =>
+  esegui<Connessione[]>(
+    supabase
+      .from("connessioni")
+      .select("chiave, nome, ruolo, ultimo_login, ultima_attivita, letto_il")
+      .eq("app_id", appId)
+      .order("ultima_attivita", { ascending: false, nullsFirst: false }),
+  );
+
 /** Un controllo KO su siti o database è critico; su deploy, funzioni e metriche è un avviso. */
 export function livelloControllo(c: Controllo): Livello {
   if (c.ok) return "ok";
