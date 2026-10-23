@@ -27,3 +27,22 @@ self.addEventListener("fetch", (e) => {
       .catch(() => caches.match(e.request).then((r) => r ?? caches.match("./"))),
   );
 });
+
+// Notifiche push delle criticità (mandate dal collettore ipa-collect).
+self.addEventListener("push", (e) => {
+  let n = { title: "IPA Monitor", body: "" };
+  try { n = { ...n, ...e.data.json() }; } catch { n.body = e.data?.text() ?? ""; }
+  e.waitUntil(self.registration.showNotification(n.title, {
+    body: n.body, tag: n.tag, icon: "icone/icona-192.png", badge: "icone/icona-192.png", data: { url: n.url ?? "#/" },
+  }));
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = new URL(e.notification.data?.url ?? "#/", self.registration.scope).href;
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((c) =>
+      c.length ? c[0].focus().then((w) => w.navigate(url)) : self.clients.openWindow(url),
+    ),
+  );
+});
