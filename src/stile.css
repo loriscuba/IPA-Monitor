@@ -137,6 +137,10 @@ table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 td { padding: 0.4rem 0.25rem; border-top: 1px solid var(--bordo); vertical-align: middle; }
 tr:first-child td { border-top: 0; }
 .etichette { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.link-utili { margin-top: 1rem; }
+.link-gruppi { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 0.25rem 1.25rem; }
+.link-chip { display: inline-block; padding: 0.3rem 0.65rem; border: 1px solid var(--bordo); border-radius: 999px; text-decoration: none; font-size: 0.9rem; }
+.link-chip:hover { border-color: var(--accento); }
 .metriche { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.5rem; margin: 0; }
 .metrica { background: var(--sfondo); border-radius: 8px; padding: 0.5rem 0.7rem; }
 .metrica dt { font-size: 0.78rem; color: var(--testo-2); }

@@ -5,11 +5,14 @@ import {
   type Connessione,
   type Controllo,
   type Livello,
+  type LinkUtile,
   caricaApp,
   caricaConnessioni,
+  caricaLink,
   caricaStorico,
   caricaUltimo,
   descriviProblema,
+  linkUtili,
   livelloControllo,
   nomeWorkflow,
   online,
@@ -21,11 +24,14 @@ import { riassumi } from "../riassunto";
 
 export function Progetto() {
   const { id = "" } = useParams();
-  const { dati, errore } = useDati(() => Promise.all([caricaApp(), caricaUltimo(id), caricaStorico(id), caricaConnessioni(id)]), [id]);
+  const { dati, errore } = useDati(
+    () => Promise.all([caricaApp(), caricaUltimo(id), caricaStorico(id), caricaConnessioni(id), caricaLink(id)]),
+    [id],
+  );
 
   if (errore) return <p className="errore">Impossibile leggere i dati: {errore}</p>;
   if (!dati) return <p className="muto">Caricamento…</p>;
-  const [elenco, controlli, storico, connessioni] = dati;
+  const [elenco, controlli, storico, connessioni, extra] = dati;
   const app = elenco.find((a) => a.id === id);
   if (!app) return <p>Progetto non trovato. <Link to="/">Torna alla Dashboard</Link></p>;
   const r = riassumi(controlli);
@@ -137,8 +143,36 @@ export function Progetto() {
         </section>
       </div>
 
+      <LinkUtili link={linkUtili(app, r.siti, extra)} />
       <Utenti connessioni={connessioni} />
     </>
+  );
+}
+
+function LinkUtili({ link }: { link: LinkUtile[] }) {
+  const gruppi = [...new Set(link.map((l) => l.gruppo))];
+  return (
+    <section className="pannello link-utili">
+      <h2>Link utili</h2>
+      <div className="link-gruppi">
+        {gruppi.map((g) => (
+          <div key={g}>
+            <h3>{g}</h3>
+            <ul className="etichette">
+              {link
+                .filter((l) => l.gruppo === g)
+                .map((l) => (
+                  <li key={l.url}>
+                    <a className="link-chip" href={l.url} target="_blank" rel="noreferrer" title={l.url}>
+                      {l.nome}
+                    </a>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
