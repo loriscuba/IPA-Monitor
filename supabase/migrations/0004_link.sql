@@ -1,4 +1,4 @@
--- Link utili per progetto (hosting, deploy, pannelli esterni) mostrati nella pagina Monitoring.
+-- 0004: link utili per progetto (hosting, deploy, pannelli esterni) mostrati nella pagina Monitoring.
 -- GitHub, Supabase Cloud e siti controllati sono ricavati dall'app: qui solo quello che non si può dedurre.
 create table if not exists ipamonitor.link (
   id      bigint generated always as identity primary key,

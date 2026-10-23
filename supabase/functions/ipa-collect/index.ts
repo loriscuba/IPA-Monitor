@@ -6,7 +6,11 @@
 //   MANAGEMENT_API_TOKEN  (o SUPABASE-PAT) token personale per la Management API (api.supabase.com)
 //   GITHUB_TOKEN          token GitHub in sola lettura (Actions + Pull requests)
 //   GYMIN_MONITOR_DB_URL  stringa di connessione del ruolo monitor_ro sul DB di GymIN
+// Con body {"solo":"utenti"} (cron ogni minuto) aggiorna solo ipamonitor.connessioni (utenti online)
+// e manda la notifica di prova ai dispositivi appena iscritti. {"solo":"test"} la rimanda a tutti.
+// Notifiche push: un controllo KO in due raccolte di fila avvisa l'app installata, il ritorno a OK pure.
 import postgres from "npm:postgres@3.4.5";
+import webpush from "npm:web-push@3.6.7";
 
 type Controllo = {
   app_id: string;
@@ -151,11 +155,146 @@ async function metricheGymin(): Promise<Controllo[]> {
   }
 }
 
+type Connessione = { chiave: string; nome: string | null; ruolo: string | null; ultimo_login: string | null; ultima_attivita: string | null };
+
+// Utenti online (ogni minuto): copia le viste utenti delle app in ipamonitor.connessioni.
+async function raccogliUtenti() {
+  const letture: [string, () => Promise<Connessione[]>][] = [
+    ["beachin", async () => await sql<Connessione[]>`select * from beachin.monitor_utenti`],
+  ];
+  if (GYMIN_DB) {
+    letture.push(["gymin", async () => {
+      const db = postgres(GYMIN_DB, { prepare: false, max: 1, connect_timeout: 10 });
+      try { return await db<Connessione[]>`select * from monitor.utenti`; } finally { await db.end(); }
+    }]);
+  }
+  const esiti: Record<string, number | string> = {};
+  await Promise.all(letture.map(async ([app_id, leggi]) => {
+    try {
+      const righe = (await leggi()).map((r) => ({ app_id, ...r, letto_il: new Date() }));
+      await sql.begin(async (tx) => {
+        await tx`delete from ipamonitor.connessioni where app_id = ${app_id}`;
+        if (righe.length) {
+          await tx`insert into ipamonitor.connessioni ${tx(righe, "app_id", "chiave", "nome", "ruolo", "ultimo_login", "ultima_attivita", "letto_il")}`;
+        }
+      });
+      esiti[app_id] = righe.length;
+    } catch (e) {
+      esiti[app_id] = errore(e).errore;
+    }
+  }));
+  return esiti;
+}
+
+// ---------- Notifiche push ----------
+
+type Notifica = { title: string; body: string; url?: string; tag?: string };
+type Iscrizione = { endpoint: string; p256dh: string; auth: string };
+
+// Chiavi VAPID: create al primo avvio, privata in Vault, pubblica in ipamonitor.impostazioni per l'app.
+async function preparaPush() {
+  const [r] = await sql`select decrypted_secret as v from vault.decrypted_secrets where name = 'ipamonitor_vapid'`;
+  let chiavi: { publicKey: string; privateKey: string };
+  if (r) {
+    chiavi = JSON.parse(r.v);
+  } else {
+    chiavi = webpush.generateVAPIDKeys();
+    await sql`select vault.create_secret(${JSON.stringify(chiavi)}, 'ipamonitor_vapid', 'Chiavi VAPID notifiche IPA Monitor')`;
+  }
+  await sql`insert into ipamonitor.impostazioni (chiave, valore) values ('vapid_public', ${chiavi.publicKey})
+    on conflict (chiave) do update set valore = excluded.valore`;
+  webpush.setVapidDetails("https://loriscuba.github.io/ipa-monitor/", chiavi.publicKey, chiavi.privateKey);
+}
+
+async function invia(iscrizioni: Iscrizione[], n: Notifica) {
+  let inviate = 0;
+  await Promise.all(iscrizioni.map(async (i) => {
+    try {
+      await webpush.sendNotification(
+        { endpoint: i.endpoint, keys: { p256dh: i.p256dh, auth: i.auth } },
+        JSON.stringify(n), { TTL: 3600, urgency: "high" },
+      );
+      inviate++;
+    } catch (e) {
+      const status = (e as { statusCode?: number }).statusCode;
+      // Iscrizione scaduta o revocata dal telefono: si toglie.
+      if (status === 404 || status === 410) await sql`delete from ipamonitor.iscrizioni_push where endpoint = ${i.endpoint}`;
+      else console.error("push", status, errore(e));
+    }
+  }));
+  return inviate;
+}
+
+const PROVA: Notifica = { title: "IPA Monitor", body: "Notifiche attive: qui arriveranno le criticità delle tue app.", tag: "prova" };
+
+async function provaNuovi(tutti = false) {
+  const nuovi = tutti
+    ? await sql<Iscrizione[]>`select endpoint, p256dh, auth from ipamonitor.iscrizioni_push`
+    : await sql<Iscrizione[]>`select endpoint, p256dh, auth from ipamonitor.iscrizioni_push where benvenuto_il is null`;
+  if (!nuovi.length) return 0;
+  await preparaPush();
+  const inviate = await invia(nuovi, PROVA);
+  await sql`update ipamonitor.iscrizioni_push set benvenuto_il = now() where endpoint in ${sql(nuovi.map((n) => n.endpoint))}`;
+  return inviate;
+}
+
+function descrivi(c: Controllo) {
+  const d = (c.dati ?? {}) as Record<string, unknown>;
+  const cosa = c.tipo === "sito" ? `sito ${d.nome ?? c.oggetto}`
+    : c.tipo === "github" ? c.oggetto.replace("workflow:", "workflow ")
+    : c.tipo === "funzioni" ? `Edge Function ${c.oggetto}`
+    : c.tipo === "metriche" ? "metriche" : `Supabase ${c.oggetto.replaceAll("_", " ")}`;
+  const motivo = d.errore ?? (d.status ? `HTTP ${d.status}` : d.esito ?? (d.mail_errori_24h ? `${d.mail_errori_24h} mail in errore` : d.errori ? `${d.errori} errori` : ""));
+  return { cosa, motivo: String(motivo).slice(0, 120) };
+}
+
+// Confronta i controlli di questa raccolta con le criticità aperte e avvisa solo sui cambi di stato.
+async function aggiornaAvvisi(controlli: Controllo[]) {
+  const aperti = new Map((await sql`select * from ipamonitor.avvisi`).map((a) => [`${a.app_id}|${a.tipo}|${a.oggetto}`, a]));
+  const nomi = new Map((await sql`select id, nome from ipamonitor.app`).map((a) => [a.id, a.nome]));
+  const messaggi: Notifica[] = [];
+  for (const c of controlli) {
+    const k = `${c.app_id}|${c.tipo}|${c.oggetto}`;
+    const a = aperti.get(k);
+    const { cosa, motivo } = descrivi(c);
+    const app = nomi.get(c.app_id) ?? c.app_id;
+    if (!c.ok && !a) {
+      await sql`insert into ipamonitor.avvisi (app_id, tipo, oggetto) values (${c.app_id}, ${c.tipo}, ${c.oggetto})`;
+    } else if (!c.ok && a && !a.notificato) {
+      await sql`update ipamonitor.avvisi set notificato = true where app_id = ${c.app_id} and tipo = ${c.tipo} and oggetto = ${c.oggetto}`;
+      messaggi.push({ title: `🔴 ${app}: ${cosa}`, body: motivo || "Controllo non riuscito", url: `#/progetto/${c.app_id}`, tag: k });
+    } else if (c.ok && a) {
+      await sql`delete from ipamonitor.avvisi where app_id = ${c.app_id} and tipo = ${c.tipo} and oggetto = ${c.oggetto}`;
+      if (a.notificato) messaggi.push({ title: `✅ ${app}: ${cosa}`, body: "Tornato regolare", url: `#/progetto/${c.app_id}`, tag: k });
+    }
+  }
+  if (!messaggi.length) return 0;
+  const iscrizioni = await sql<Iscrizione[]>`select endpoint, p256dh, auth from ipamonitor.iscrizioni_push`;
+  if (!iscrizioni.length) return 0;
+  await preparaPush();
+  // Più criticità insieme: una sola notifica riassuntiva.
+  const n = messaggi.length === 1 ? messaggi[0] : {
+    title: `IPA Monitor: ${messaggi.length} cambi di stato`,
+    body: messaggi.map((m) => m.title).join("\n"), url: "#/", tag: "riepilogo",
+  };
+  return await invia(iscrizioni, n);
+}
+
 Deno.serve(async (req) => {
   const [{ segreto } = { segreto: null }] = await sql`
     select decrypted_secret as segreto from vault.decrypted_secrets where name = 'ipamonitor_cron_secret'`;
   if (!segreto || req.headers.get("x-cron-secret") !== segreto) {
     return new Response("non autorizzato", { status: 401 });
+  }
+
+  const corpo = await req.json().catch(() => ({}));
+  if (corpo?.solo === "utenti") {
+    const [utenti, prova] = await Promise.all([raccogliUtenti(), provaNuovi().catch((e) => errore(e).errore)]);
+    return Response.json({ utenti, prova });
+  }
+  if (corpo?.solo === "test") {
+    await preparaPush(); // crea le chiavi anche se nessun dispositivo è ancora iscritto
+    return Response.json({ prova: await provaNuovi(true) });
   }
 
   const app = await sql`select id, repo, supabase_ref from ipamonitor.app where attiva`;
@@ -177,5 +316,6 @@ Deno.serve(async (req) => {
     const righe = controlli.map((c) => ({ ...c, latenza_ms: c.latenza_ms ?? null, dati: c.dati == null ? null : sql.json(c.dati as postgres.JSONValue) }));
     await sql`insert into ipamonitor.controlli ${sql(righe, "app_id", "tipo", "oggetto", "ok", "latenza_ms", "dati")}`;
   }
-  return Response.json({ controlli: controlli.length, ko: controlli.filter((c) => !c.ok).length });
+  const notifiche = await aggiornaAvvisi(controlli).catch((e) => errore(e).errore);
+  return Response.json({ controlli: controlli.length, ko: controlli.filter((c) => !c.ok).length, notifiche });
 });
