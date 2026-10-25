@@ -14,6 +14,8 @@ export function App() {
   const cambiaDemo = () => {
     impostaDemo(!demo);
     setDemo(!demo);
+    // I progetti demo non esistono nei dati reali (e viceversa): si riparte dalla Dashboard.
+    window.location.hash = "#/";
   };
 
   useEffect(() => {
@@ -34,7 +36,7 @@ export function App() {
         </Link>
         <span className="muto piccolo nascondi-mobile">{sessione.user.email}</span>
         <button className="secondario" onClick={cambiaDemo} aria-pressed={demo}>
-          {demo ? "Esci" : "Demo"}
+          {demo ? "Esci demo" : "Demo"}
         </button>
         <Notifiche />
         {/* In demo "Esci" riporta ai dati reali: il logout torna visibile fuori dalla demo. */}
