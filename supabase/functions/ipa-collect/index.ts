@@ -49,9 +49,22 @@ async function controllaSito(app_id: string, nome: string, url: string): Promise
   }
 }
 
+class LimiteApi extends Error {
+  constructor(public reset: string | null) { super("limite richieste API raggiunto"); }
+}
+
 async function api(url: string, headers: Record<string, string>) {
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`.slice(0, 300));
+  if (!res.ok) {
+    const testo = await res.text();
+    // GitHub: 403/429 con x-ratelimit-remaining=0 o messaggio "rate limit" = limite, non un guasto dell'app
+    if ((res.status === 403 || res.status === 429) &&
+        (res.headers.get("x-ratelimit-remaining") === "0" || /rate limit/i.test(testo))) {
+      const r = Number(res.headers.get("x-ratelimit-reset"));
+      throw new LimiteApi(r ? new Date(r * 1000).toISOString() : null);
+    }
+    throw new Error(`${res.status} ${testo}`.slice(0, 300));
+  }
   return res.json();
 }
 
@@ -115,7 +128,8 @@ async function controllaGithub(app_id: string, repo: string): Promise<Controllo[
     for (const run of workflow_runs ?? []) {
       if (visti.has(run.name)) continue; // solo l'ultima esecuzione di ogni workflow
       visti.add(run.name);
-      const ok = run.status !== "completed" || ["success", "skipped", "neutral"].includes(run.conclusion);
+      // "cancelled" = fermato a mano o sostituito da un run più recente: non è un guasto
+      const ok = run.status !== "completed" || ["success", "skipped", "neutral", "cancelled"].includes(run.conclusion);
       out.push({
         app_id, tipo: "github", oggetto: `workflow:${run.name}`, ok,
         dati: { stato: run.status, esito: run.conclusion, commit: run.head_sha?.slice(0, 7), url: run.html_url, il: run.updated_at },
@@ -126,8 +140,14 @@ async function controllaGithub(app_id: string, repo: string): Promise<Controllo[
       app_id, tipo: "github", oggetto: "pr_aperte", ok: true,
       dati: { totale: pr.length, bozze: pr.filter((p: { draft: boolean }) => p.draft).length },
     });
+    // Riga "api" sempre scritta, così un vecchio errore non resta l'ultimo stato
+    out.push({ app_id, tipo: "github", oggetto: "api", ok: true, dati: { autenticato: !!GH } });
   } catch (e) {
-    out.push({ app_id, tipo: "github", oggetto: "api", ok: false, dati: errore(e) });
+    if (e instanceof LimiteApi) {
+      out.push({ app_id, tipo: "github", oggetto: "api", ok: true, dati: { avviso: e.message, autenticato: !!GH, riprova_dopo: e.reset } });
+    } else {
+      out.push({ app_id, tipo: "github", oggetto: "api", ok: false, dati: errore(e) });
+    }
   }
   return out;
 }
