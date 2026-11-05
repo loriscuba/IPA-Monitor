@@ -17,7 +17,7 @@ Demo IPA → Edge Functions → Secrets:
 | Nome | Dove si prende | Attiva |
 |---|---|---|
 | `MANAGEMENT_API_TOKEN` (o `SUPABASE-PAT`) | supabase.com → Account → Access Tokens | salute progetti, errori API, stato Edge Function |
-| `GITHUB_TOKEN` | GitHub → token fine-grained, sola lettura su GymIN e BeachIn (Actions, Pull requests) | GitHub se i repo sono privati |
+| `GITHUB_TOKEN` | GitHub → token fine-grained, sola lettura su GymIN e BeachIn (Actions, Pull requests) | GitHub sempre: senza token le chiamate sono anonime (60/ora per IP condiviso) e vanno in rate limit |
 | `GYMIN_MONITOR_DB_URL` | vedi punto 3 | metriche GymIN |
 
 ## 3. GymIN (dopo il merge della PR GymIN #86)
